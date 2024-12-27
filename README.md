@@ -38,7 +38,7 @@ Please note that this script is currently under development, and I cannot provid
 1. **Clone the repository**
 
    ```sh
-   git clone https://github.com/yourusername/UFEDKMLstacker.git
+   git clone https://github.com/ot2i7ba/UFEDKMLstacker.git
    cd UFEDKMLstacker
    ```
 
