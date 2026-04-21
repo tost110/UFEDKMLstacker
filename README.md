@@ -126,6 +126,122 @@ ___
 
 # Changes
 
+# UFEDKMLstacker v0.0.4
+
+> Optimised continuation of [v0.0.3](https://github.com/ot2i7ba/UFEDKMLstacker) by [ot2i7ba](https://github.com/ot2i7ba).
+
+---
+
+## What's New
+
+### 🌐 Language Selection (English / German)
+
+At startup the tool now asks for a preferred language:
+
+```
+Language / Sprache ([EN] = English / DE = Deutsch):
+```
+
+All console output, prompts, map layer names, popups and the speed-band legend in the interactive map respond to this choice. The default is English when pressing Enter.
+
+---
+
+### 🗺️ Interactive Map (Folium / Leaflet)
+
+The map output was completely rewritten using **Folium (Leaflet.js)**, replacing the previous Plotly implementation which did not support reliable zoom in saved HTML files.
+
+- Mouse-wheel zoom, pinch-zoom, +/− buttons
+- Fullscreen button and mini-map overview
+- Scale bar
+- Three selectable base maps: **CartoDB Positron** (default), **CartoDB Dark Matter**, **OpenStreetMap (mirror)** — all tile-server friendly, no 403 errors
+- All layers individually toggleable via the layer control
+- Auto-fit viewport to all points on load
+
+---
+
+### 🚗 Speed Analysis
+
+Automatic speed calculation between consecutive location points using GPS timestamps and the **Haversine formula**:
+
+- Distance (km), duration (s) and speed (km/h) per segment
+- Colour-coded polylines as a toggleable map layer:
+
+  | Band | Default colour |
+  |---|---|
+  | < 30 km/h | Grey |
+  | 30–50 km/h | Green |
+  | 50–70 km/h | Blue |
+  | 70–100 km/h | Yellow |
+  | 100–130 km/h | Orange |
+  | 130–150 km/h | Dark orange |
+  | > 150 km/h | Red |
+
+- Segments with time gaps > 4 hours are skipped automatically
+- Click popup per segment: from/to point, timestamps, distance, duration, speed and band label
+- **Speed-band legend** rendered as a draggable overlay on the map
+
+#### Configurable Band Colours
+
+Before processing begins the tool optionally asks whether to adjust band colours. Colours can be entered as names (`red`, `blue`, `orange`, …) or as hex codes (`#FF4500`). Settings are saved to `speed_colors.json` and loaded automatically on the next run.
+
+---
+
+### 📊 Extended Statistics Export
+
+| File | Contents |
+|---|---|
+| `KML_Statistics.xlsx` | Summary sheet + new **Speed Segments** and **Speed Summary** sheets |
+| `KML_Statistics.csv` | New columns: `speed_segments`, `max_speed_kmh` |
+| `KML_Speed_Segments.csv` | **New** — all calculated speed segments sorted by speed |
+| `speed_colors.json` | **New** — persisted colour configuration for speed bands |
+
+---
+
+## Bug Fixes (vs. v0.0.3)
+
+| # | Area | Fix |
+|---|---|---|
+| 1 | KML colour format | `define_styles()` used `ff` + `#RRGGBB`; correct KML format is `AABBGGRR`. Fixed via `_hex_to_kml_color()`. |
+| 2 | Double SHA-256 | Hash was computed in `extract_file_metadata()` and again in `verify_file_integrity()`. Now computed once and passed through. |
+| 3 | Duplicate `color_name_map` | Defined globally and again locally in `save_statistics_to_excel()` with differing keys. Merged into single `HEX_TO_NAME`. |
+| 4 | `create_interactive_map()` crashes | Missing `<name>` / `<description>` tags in Placemarks caused `AttributeError`. All element accesses now None-safe. |
+
+---
+
+## Code Quality Improvements (vs. v0.0.3)
+
+- `pathlib.Path` used consistently for all path operations
+- `COLOR_PALETTE` as the single source of truth for colour assignment
+- `MAX_REMARK_LENGTH` and `MAX_SELECTION_LENGTH` constants for input validation
+- `validate_selection()` deduplicates repeated file numbers
+- SHA-256 hash read buffer increased from 4 KB to 64 KB
+- Full type annotations (`typing`) on all functions
+- `json` imported at module level (was imported locally in three places)
+
+---
+
+## New Dependency
+
+```
+folium>=0.14.0,<1.0.0
+```
+
+Install / update with:
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## Notes
+
+- **Tile servers and the interactive map require an internet connection.** All other functionality works fully offline.
+- Speed calculations are approximations based on GPS coordinates and timestamps extracted from UFED exports. Results must be verified against source data.
+- Still testing because 0.0.4 is created via vibe coding.
+
+---
+
 ## Changes in 0.0.3
 
 - **Global Color Mapping Definition**<br>The color mapping (color_name_map) has been moved to a global scope, making it accessible throughout the script without needing to redefine it locally within functions.
