@@ -240,7 +240,7 @@ pip install -r requirements.txt
 - **Tile servers and the interactive map require an internet connection.** All other functionality works fully offline.
 - Speed calculations are approximations based on GPS coordinates and timestamps extracted from UFED exports. Results must be verified against source data.
 > [!IMPORTANT]
-- Still testing because 0.0.4 is created via vibe coding.
+> Still testing because 0.0.4 is created via vibe coding.
 
 ---
 
