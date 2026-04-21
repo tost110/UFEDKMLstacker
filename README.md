@@ -29,10 +29,11 @@ Please note that this script is currently under development, and I cannot provid
 
 # Requirements
 - Python 3.7 or higher
-   - pandas>=2.0.0,<3.0.0
-   - lxml>=4.9.0,<5.0.0
-   - plotly>=5.15.0,<6.0.0
-   - arrow>=1.0.0,<2.0.0
+pandas>=2.0.0,<3.0.0
+lxml>=4.9.0,<6.0.0
+arrow>=1.0.0,<2.0.0
+folium>=0.14.0,<1.0.0
+
 
 # Installation
 1. **Clone the repository**
@@ -238,6 +239,7 @@ pip install -r requirements.txt
 
 - **Tile servers and the interactive map require an internet connection.** All other functionality works fully offline.
 - Speed calculations are approximations based on GPS coordinates and timestamps extracted from UFED exports. Results must be verified against source data.
+> [!IMPORTANT]
 - Still testing because 0.0.4 is created via vibe coding.
 
 ---
