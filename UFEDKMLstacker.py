@@ -932,8 +932,33 @@ def _collect_map_rows(
     merged_kml: str,
     color_map: Dict[str, str],
     remarks: Dict[str, str],
+    speed_segments: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
-    """Parse merged KML and return a list of row dicts for map rendering."""
+    """Parse merged KML and return a list of row dicts for map rendering.
+
+    Each row's ``color`` field is the *speed-band* colour at that point — taken
+    from the segment that ends at the point (i.e. the speed at which one
+    arrived there). For the first point of a track, the segment leaving the
+    point is used as a fallback; if neither exists, the standstill colour
+    (``< 30 km/h`` grey) is applied.
+
+    The original file/source colour is kept under ``source_color`` so the
+    layer-control bullets next to each file name can still distinguish files.
+    """
+    # ── Build speed lookups keyed by (remark, timestamp_iso) ──────────────
+    # speed_in : segment arriving at this point  (preferred)
+    # speed_out: segment leaving  this point  (fallback for the very first point)
+    speed_in:  Dict[Tuple[str, str], Dict[str, Any]] = {}
+    speed_out: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    for seg in (speed_segments or []):
+        info = {
+            "color":     seg["color"],
+            "band":      seg.get("speed_band", ""),
+            "speed_kmh": seg.get("speed_kmh", 0.0),
+        }
+        speed_in[(seg["remark"],  seg["to_ts"])]   = info
+        speed_out[(seg["remark"], seg["from_ts"])] = info
+
     rows: List[Dict[str, Any]] = []
     tree = etree.parse(merged_kml)
     for pm in tree.findall(f".//{{{KML_NS}}}Placemark"):
@@ -953,15 +978,34 @@ def _collect_map_rows(
         except ValueError:
             continue
 
-        style_key = (su_el.text or "").lstrip("#") if su_el is not None else ""
+        style_key   = (su_el.text or "").lstrip("#") if su_el is not None else ""
+        timestamp   = (ts_el.text  or "") if ts_el  is not None else ""
+        remark      = remarks.get(style_key, "No remark")
+        source_col  = color_map.get(style_key, "#808080")
+
+        # Resolve the speed colour for this point.
+        sp = speed_in.get((remark, timestamp)) \
+            or speed_out.get((remark, timestamp))
+        if sp:
+            speed_color = sp["color"]
+            speed_band  = sp["band"]
+            speed_kmh   = sp["speed_kmh"]
+        else:
+            speed_color = _COLOR_UNDER_30
+            speed_band  = "< 30 km/h"
+            speed_kmh   = None
+
         rows.append({
-            "lat":         lat,
-            "lon":         lon,
-            "name":        (name_el.text or "") if name_el is not None else "",
-            "description": (desc_el.text or "") if desc_el is not None else "",
-            "timestamp":   (ts_el.text or "")  if ts_el  is not None else "",
-            "color":       color_map.get(style_key, "#808080"),
-            "remark":      remarks.get(style_key, "No remark"),
+            "lat":          lat,
+            "lon":          lon,
+            "name":         (name_el.text or "") if name_el is not None else "",
+            "description":  (desc_el.text or "") if desc_el is not None else "",
+            "timestamp":    timestamp,
+            "color":        speed_color,    # ← speed-band colour (used for the dot)
+            "source_color": source_col,     # ← original file colour (legend bullet)
+            "remark":       remark,
+            "speed_band":   speed_band,
+            "speed_kmh":    speed_kmh,
         })
     return rows
 
@@ -984,7 +1028,7 @@ def create_interactive_map(
     - Popup on click with name, timestamp, description / speed details
     - Auto-fits viewport to all points
     """
-    rows = _collect_map_rows(merged_kml, color_map, remarks)
+    rows = _collect_map_rows(merged_kml, color_map, remarks, speed_segments)
 
     if not rows:
         logging.warning("No rows to plot in interactive map.")
@@ -1057,7 +1101,12 @@ def create_interactive_map(
         groups[row["remark"]].append(row)
 
     for remark_label, pts in groups.items():
-        fg = folium.FeatureGroup(name=f"<span style='color:{pts[0]['color']}'>"
+        # The bullet next to the file name in the layer control keeps the
+        # original *file* colour, so that the toggle still tells you which
+        # source you are looking at — the markers themselves are now coloured
+        # by speed.
+        legend_color = pts[0].get("source_color", pts[0]["color"])
+        fg = folium.FeatureGroup(name=f"<span style='color:{legend_color}'>"
                                       f"&#9679;</span> {remark_label}",
                                  show=True)
         cluster = MarkerCluster(
@@ -1068,13 +1117,26 @@ def create_interactive_map(
         )
 
         for pt in pts:
+            # Optional speed line in the popup
+            speed_html = ""
+            if pt.get("speed_kmh") is not None:
+                speed_html = (
+                    f"<br><b>{T('map_speed')}:</b> "
+                    f"<span style='color:{pt['color']};font-weight:bold'>"
+                    f"{pt['speed_kmh']:.1f} km/h</span> "
+                    f"<span style='color:#888;font-size:11px'>"
+                    f"({pt['speed_band']})</span>"
+                )
+
             popup_html = (
                 f"<b>{pt['name']}</b><br>"
-                f"<i>{pt['timestamp']}</i><br>"
-                f"<small>{pt['description'][:300]}</small>"
+                f"<i>{pt['timestamp']}</i>"
+                f"{speed_html}"
+                f"<br><small>{pt['description'][:300]}</small>"
             ) if pt["description"] else (
                 f"<b>{pt['name']}</b><br>"
                 f"<i>{pt['timestamp']}</i>"
+                f"{speed_html}"
             )
             folium.CircleMarker(
                 location=[pt["lat"], pt["lon"]],
